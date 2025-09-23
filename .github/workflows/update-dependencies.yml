@@ -51,7 +51,7 @@ jobs:
         
     - name: 🔄 Clone target repository
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_PAT }}
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       run: |
         echo "::group::🔄 Cloning repository: ${{ steps.repo-info.outputs.repo-name }}"
         if [ -d "${{ steps.repo-info.outputs.repo-name }}" ]; then
@@ -125,7 +125,7 @@ jobs:
     - name: 🔗 Configure git remote with authentication
       working-directory: ${{ steps.repo-info.outputs.repo-name }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_PAT }}
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       run: |
         echo "::group::🔗 Setting up authenticated git remote"
         REPO_URL="${{ steps.repo-info.outputs.repo-url }}"
