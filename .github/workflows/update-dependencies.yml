@@ -285,14 +285,18 @@ jobs:
           echo ""
           echo "📦 Updated Packages:"
           echo "${{ steps.update-deps.outputs.update-summary }}"
-          # Store the summary for PR creation
-          echo "pr-summary=${{ steps.update-deps.outputs.update-summary }}" >> $GITHUB_OUTPUT
+          # Store the summary for PR creation using proper delimiter
+          {
+            echo "pr-summary<<EOF"
+            echo "${{ steps.update-deps.outputs.update-summary }}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
         else
           echo "pr-summary=No dependency updates detected." >> $GITHUB_OUTPUT
         fi
         echo "::endgroup::"
 
-    - name: 📝 Create Pull Request
+    - name: 📝Create Pull Request
       if: steps.commit-changes.outputs.committed == 'true'
       working-directory: ${{ steps.repo-info.outputs.repo-name }}
       env:
@@ -302,33 +306,32 @@ jobs:
         
         # Create PR body in a temporary file to avoid issues with heredoc and GitHub expressions
         cat > pr_body.md << 'EOFBODY'
-        🤖 **Automated Dependency Update**
+          **Automated Dependency Update**
 
-        This PR was created automatically by GitHub Actions to update Poetry dependencies.
+          is PR was created automatically by GitHub Actions to update Poetry dependencies.
 
-        **📋 Summary of updated packages:**
+          📋 Summary of updated packages:**
 
-        ```diff
-        EOFBODY
-                # Add the actual summary
-                echo "${{ steps.summary.outputs.pr-summary }}" >> pr_body.md
-                
-                # Complete the PR body
-                cat >> pr_body.md << 'EOFBODY'
-        ```
+          `diff
+          FBODY
+                  Add the actual summary
+                  ho "${{ steps.summary.outputs.pr-summary }}" >> pr_body.md
+                                   Complete the PR body
+                  t >> pr_body.md << 'EOFBODY'
+          `
 
-        **🔍 Details:**
-        - **Repository:** ${{ steps.repo-info.outputs.repo-name }}
-        - **Base Branch:** ${{ steps.base-branch.outputs.base-branch }}
-        - **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          🔍 Details:**
+          **Repository:** ${{ steps.repo-info.outputs.repo-name }}
+          **Base Branch:** ${{ steps.base-branch.outputs.base-branch }}
+          **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-        **✅ Automated checks:**
-        - Dependencies updated using `poetry update`
-        - All changes committed and ready for review
+          ✅ Automated checks:**
+          Dependencies updated using `poetry update`
+          All changes committed and ready for review
 
-        ---
-        *This PR was created by the github-actions bot*
-        EOFBODY
+          -
+          his PR was created by the github-actions bot*
+          FBODY
         
         # Create PR using the file
         gh pr create \
