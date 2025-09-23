@@ -220,8 +220,8 @@ jobs:
         echo "Raw update output:"
         echo "$UPDATE_OUTPUT"
         
-        # Extract updated packages
-        UPDATES=$(echo "$UPDATE_OUTPUT" | grep -E '^\s*- (Updating|Installing|Removing)' || echo "")
+        # Extract updated packages and clean them up
+        UPDATES=$(echo "$UPDATE_OUTPUT" | grep -E '^\s*- (Updating|Installing|Removing)' | sed 's/^[[:space:]]*//' || echo "")
         
         if [ -z "$UPDATES" ]; then
           echo "ℹ️ No dependency updates detected"
@@ -231,10 +231,12 @@ jobs:
           echo "✅ Dependencies updated:"
           echo "$UPDATES"
           echo "has-updates=true" >> $GITHUB_OUTPUT
+          # Clean up the updates and format them properly
+          CLEAN_UPDATES=$(echo "$UPDATES" | sed 's/^- /• /' | tr '\n' '\n')
           # Use delimiter for multiline output
           {
             echo "update-summary<<EOF"
-            echo "$UPDATES"
+            echo "$CLEAN_UPDATES"
             echo "EOF"
           } >> $GITHUB_OUTPUT
         fi
@@ -267,8 +269,8 @@ jobs:
           echo "committed=true" >> $GITHUB_OUTPUT
         fi
         echo "::endgroup::"
-        
-    - name: � Summary
+
+    - name: 📝 Summary
       if: always()
       id: summary
       run: |
@@ -289,8 +291,8 @@ jobs:
           echo "pr-summary=No dependency updates detected." >> $GITHUB_OUTPUT
         fi
         echo "::endgroup::"
-        
-    - name: �🔀 Create Pull Request
+
+    - name: 📝 Create Pull Request
       if: steps.commit-changes.outputs.committed == 'true'
       working-directory: ${{ steps.repo-info.outputs.repo-name }}
       env:
@@ -298,33 +300,40 @@ jobs:
       run: |
         echo "::group::🔀 Creating Pull Request"
         
-        # Create PR with actual update summary
+        # Create PR body in a temporary file to avoid issues with heredoc and GitHub expressions
+        cat > pr_body.md << 'EOFBODY'
+        🤖 **Automated Dependency Update**
+
+        This PR was created automatically by GitHub Actions to update Poetry dependencies.
+
+        **📋 Summary of updated packages:**
+
+        ```diff
+        EOFBODY
+                # Add the actual summary
+                echo "${{ steps.summary.outputs.pr-summary }}" >> pr_body.md
+                
+                # Complete the PR body
+                cat >> pr_body.md << 'EOFBODY'
+        ```
+
+        **🔍 Details:**
+        - **Repository:** ${{ steps.repo-info.outputs.repo-name }}
+        - **Base Branch:** ${{ steps.base-branch.outputs.base-branch }}
+        - **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+        **✅ Automated checks:**
+        - Dependencies updated using `poetry update`
+        - All changes committed and ready for review
+
+        ---
+        *This PR was created by the github-actions bot*
+        EOFBODY
+        
+        # Create PR using the file
         gh pr create \
           --title "🤖 Auto update Poetry dependencies ($(date +"%Y-%m-%d"))" \
-          --body-file <(cat <<EOF
-          🤖 **Automated Dependency Update**
-
-          This PR was created automatically by GitHub Actions to update Poetry dependencies.
-
-          **📋 Summary of updated packages:**
-
-          \`\`\`diff
-          ${{ steps.summary.outputs.pr-summary }}
-          \`\`\`
-
-          **🔍 Details:**
-          - **Repository:** ${{ steps.repo-info.outputs.repo-name }}
-          - **Base Branch:** ${{ steps.base-branch.outputs.base-branch }}
-          - **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-          **✅ Automated checks:**
-          - Dependencies updated using \`poetry update\`
-          - All changes committed and ready for review
-
-          ---
-          *This PR was created by the github-actions bot*
-          EOF
-                    ) \
+          --body-file pr_body.md \
           --base "${{ steps.base-branch.outputs.base-branch }}" \
           --head "${{ steps.repo-info.outputs.branch-name }}" \
           --label "dependencies" \
