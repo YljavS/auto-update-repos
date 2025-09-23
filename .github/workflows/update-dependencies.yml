@@ -339,9 +339,7 @@ jobs:
           --title "🤖 Auto update Poetry dependencies ($(date +"%Y-%m-%d"))" \
           --body-file pr_body.md \
           --base "${{ steps.base-branch.outputs.base-branch }}" \
-          --head "${{ steps.repo-info.outputs.branch-name }}" \
-          --label "dependencies" \
-          --label "automated" 2>&1) || {
+          --head "${{ steps.repo-info.outputs.branch-name }}" 2>&1) || {
             echo "⚠️ Failed to create PR (may already exist)"
             echo "Error output: $PR_URL"
             exit 0
