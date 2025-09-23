@@ -40,6 +40,17 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
+    - name: 🏭 Configure Poetry for JFrog Artifactory
+      env:
+        JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
+        JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
+      run: |
+        echo "::group::🏭 Configuring Poetry for JFrog Artifactory"
+        # Configure Poetry to use JFrog Artifactory credentials globally
+        poetry config http-basic.artifactory "$JFROG_USERNAME" "$JFROG_TOKEN"
+        echo "✅ Poetry configured for JFrog Artifactory (global)"
+        echo "::endgroup::"
+        
     - name: 📊 Extract repository information
       id: repo-info
       run: |
