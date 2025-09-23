@@ -227,12 +227,16 @@ jobs:
           echo "committed=false" >> $GITHUB_OUTPUT
         else
           git add .
-          git commit -m "🤖 Auto update Poetry dependencies
+          
+          # Create commit message with proper escaping
+          COMMIT_MSG="🤖 Auto update Poetry dependencies
 
 $(date +"%Y-%m-%d %H:%M:%S")
 
 Updates:
 ${{ steps.update-deps.outputs.update-summary }}"
+          
+          git commit -m "$COMMIT_MSG"
           
           git push --set-upstream origin "${{ steps.repo-info.outputs.branch-name }}"
           echo "✅ Changes committed and pushed"

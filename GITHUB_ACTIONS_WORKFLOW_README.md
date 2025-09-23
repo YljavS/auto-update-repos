@@ -29,7 +29,7 @@ Create a Personal Access Token and add it as a repository secret:
 6. In your automation repository:
    - Go to Settings → Secrets and variables → Actions
    - Click "New repository secret"
-   - Name: `GITHUB_PAT`
+   - Name: `PERSONAL_ACCESS_TOKEN`
    - Value: Your Personal Access Token
 
 ### 2. Repository Configuration
