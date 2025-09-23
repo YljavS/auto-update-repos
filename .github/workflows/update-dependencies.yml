@@ -17,11 +17,11 @@ jobs:
     strategy:
       matrix:
         repository: 
-          # - "https://github.com/Alliander/rha_file_upload_tool.git"
+          - "https://github.com/Alliander/rha_file_upload_tool.git"
           - "https://github.com/Alliander/rha-mule.git"
           # Add more repositories here as needed
-          # - "https://github.com/Alliander/aannemerij_forecast_GVRN.git"
-          # - "https://github.com/Alliander/aannemerij_forecast_GVRN_frontend.git"
+          - "https://github.com/Alliander/aannemerij_forecast_GVRN.git"
+          - "https://github.com/Alliander/aannemerij_forecast_GVRN_frontend.git"
       fail-fast: false # Continue with other repos even if one fails
     
     steps:
