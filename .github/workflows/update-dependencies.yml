@@ -228,15 +228,16 @@ jobs:
         else
           git add .
           
-          # Create commit message with proper escaping
-          COMMIT_MSG="🤖 Auto update Poetry dependencies
+          # Build commit message dynamically to avoid YAML parsing issues
+          TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+          UPDATES="${{ steps.update-deps.outputs.update-summary }}"
+          
+          git commit -m "🤖 Auto update Poetry dependencies
 
-$(date +"%Y-%m-%d %H:%M:%S")
+$TIMESTAMP
 
 Updates:
-${{ steps.update-deps.outputs.update-summary }}"
-          
-          git commit -m "$COMMIT_MSG"
+$UPDATES"
           
           git push --set-upstream origin "${{ steps.repo-info.outputs.branch-name }}"
           echo "✅ Changes committed and pushed"
