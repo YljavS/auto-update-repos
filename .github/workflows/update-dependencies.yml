@@ -117,6 +117,18 @@ jobs:
       with:
         python-version: ${{ steps.python-version.outputs.python-version }}
         
+    - name: 🔗 Configure git remote with authentication
+      working-directory: ${{ steps.repo-info.outputs.repo-name }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      run: |
+        echo "::group::🔗 Setting up authenticated git remote"
+        REPO_URL="${{ steps.repo-info.outputs.repo-url }}"
+        AUTHENTICATED_URL=$(echo "$REPO_URL" | sed "s|https://github.com/|https://x-access-token:${GITHUB_TOKEN}@github.com/|")
+        git remote set-url origin "$AUTHENTICATED_URL"
+        echo "✅ Git remote configured with authentication"
+        echo "::endgroup::"
+        
     - name: 🌿 Determine base branch and checkout
       id: base-branch
       working-directory: ${{ steps.repo-info.outputs.repo-name }}
@@ -140,18 +152,6 @@ jobs:
         git checkout "$BASE_BRANCH"
         git pull origin "$BASE_BRANCH"
         echo "✅ Checked out and updated $BASE_BRANCH"
-        echo "::endgroup::"
-        
-    - name: 🔗 Configure git remote with authentication
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-      run: |
-        echo "::group::🔗 Setting up authenticated git remote"
-        REPO_URL="${{ steps.repo-info.outputs.repo-url }}"
-        AUTHENTICATED_URL=$(echo "$REPO_URL" | sed "s|https://github.com/|https://x-access-token:${GITHUB_TOKEN}@github.com/|")
-        git remote set-url origin "$AUTHENTICATED_URL"
-        echo "✅ Git remote configured with authentication"
         echo "::endgroup::"
         
     - name: 🧹 Clean up existing branch
