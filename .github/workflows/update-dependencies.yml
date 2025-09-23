@@ -296,11 +296,11 @@ jobs:
         fi
         echo "::endgroup::"
 
-    - name: � Create Pull Request
+    - name: 🔀Create Pull Request
       if: steps.commit-changes.outputs.committed == 'true'
       working-directory: ${{ steps.repo-info.outputs.repo-name }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       run: |
         echo "::group::🔀 Creating Pull Request"
         
