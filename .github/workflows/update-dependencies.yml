@@ -49,35 +49,19 @@ jobs:
         echo "repo-url=$REPO_URL" >> $GITHUB_OUTPUT
         echo "branch-name=auto-update-dependencies-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
         
-    - name: 🔍 Debug: Test token access
+    - name: 🔍 Debug token access
       env:
         GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       run: |
-        echo "::group::🔍 Testing Personal Access Token"
-        echo "Testing basic GitHub API access..."
-        
-        # Test basic GitHub API
-        curl -H "Authorization: token $GITHUB_TOKEN" \
-             -H "Accept: application/vnd.github.v3+json" \
-             https://api.github.com/user
-        
+        echo "Testing Personal Access Token..."
+        echo "User info:"
+        curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user
         echo ""
-        echo "Testing access to Alliander organization..."
-        
-        # Test organization access
-        curl -H "Authorization: token $GITHUB_TOKEN" \
-             -H "Accept: application/vnd.github.v3+json" \
-             https://api.github.com/orgs/Alliander
-        
+        echo "Testing Alliander org access:"
+        curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/orgs/Alliander
         echo ""
-        echo "Testing specific repository access..."
-        
-        # Test repository access
-        curl -H "Authorization: token $GITHUB_TOKEN" \
-             -H "Accept: application/vnd.github.v3+json" \
-             https://api.github.com/repos/Alliander/rha-mule
-        
-        echo "::endgroup::"
+        echo "Testing repo access:"
+        curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/Alliander/rha-mule
         
     - name: 🔄 Clone target repository
       env:
