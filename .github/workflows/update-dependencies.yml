@@ -49,6 +49,36 @@ jobs:
         echo "repo-url=$REPO_URL" >> $GITHUB_OUTPUT
         echo "branch-name=auto-update-dependencies-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
         
+    - name: 🔍 Debug: Test token access
+      env:
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      run: |
+        echo "::group::🔍 Testing Personal Access Token"
+        echo "Testing basic GitHub API access..."
+        
+        # Test basic GitHub API
+        curl -H "Authorization: token $GITHUB_TOKEN" \
+             -H "Accept: application/vnd.github.v3+json" \
+             https://api.github.com/user
+        
+        echo ""
+        echo "Testing access to Alliander organization..."
+        
+        # Test organization access
+        curl -H "Authorization: token $GITHUB_TOKEN" \
+             -H "Accept: application/vnd.github.v3+json" \
+             https://api.github.com/orgs/Alliander
+        
+        echo ""
+        echo "Testing specific repository access..."
+        
+        # Test repository access
+        curl -H "Authorization: token $GITHUB_TOKEN" \
+             -H "Accept: application/vnd.github.v3+json" \
+             https://api.github.com/repos/Alliander/rha-mule
+        
+        echo "::endgroup::"
+        
     - name: 🔄 Clone target repository
       env:
         GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
@@ -59,10 +89,16 @@ jobs:
           rm -rf "${{ steps.repo-info.outputs.repo-name }}"
         fi
         
-        # Clone with PAT authentication
-        REPO_URL="${{ steps.repo-info.outputs.repo-url }}"
-        AUTHENTICATED_URL=$(echo "$REPO_URL" | sed "s|https://github.com/|https://x-access-token:${GITHUB_TOKEN}@github.com/|")
-        git clone "$AUTHENTICATED_URL" "${{ steps.repo-info.outputs.repo-name }}"
+        # Try using GitHub CLI for cloning (better SAML SSO support)
+        echo "Attempting to clone with GitHub CLI..."
+        gh repo clone "Alliander/${{ steps.repo-info.outputs.repo-name }}" "${{ steps.repo-info.outputs.repo-name }}" || {
+          echo "GitHub CLI failed, trying direct git clone with PAT..."
+          
+          # Fallback to direct git clone with PAT authentication
+          REPO_URL="${{ steps.repo-info.outputs.repo-url }}"
+          AUTHENTICATED_URL=$(echo "$REPO_URL" | sed "s|https://github.com/|https://x-access-token:${GITHUB_TOKEN}@github.com/|")
+          git clone "$AUTHENTICATED_URL" "${{ steps.repo-info.outputs.repo-name }}"
+        }
         
         echo "✅ Successfully cloned ${{ steps.repo-info.outputs.repo-name }}"
         echo "::endgroup::"
