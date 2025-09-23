@@ -228,12 +228,8 @@ jobs:
         else
           git add .
           
-          UPDATES="${{ steps.update-deps.outputs.update-summary }}"
-          
-          git commit -m "🤖 Auto update Poetry dependencies
-
-Updates:
-$UPDATES"
+          # Simple commit message to avoid YAML parsing issues
+          git commit -m "🤖 Auto update Poetry dependencies"
           
           git push --set-upstream origin "${{ steps.repo-info.outputs.branch-name }}"
           echo "✅ Changes committed and pushed"
