@@ -237,53 +237,9 @@ jobs:
         fi
         echo "::endgroup::"
         
-    - name: 🔀 Create Pull Request
-      if: steps.commit-changes.outputs.committed == 'true'
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        echo "::group::🔀 Creating Pull Request"
-        
-        PR_BODY="🤖 **Automated Dependency Update**
-
-This PR was created automatically by GitHub Actions to update Poetry dependencies.
-
-**📋 Summary of updated packages:**
-
-\`\`\`diff
-${{ steps.update-deps.outputs.update-summary }}
-\`\`\`
-
-**🔍 Details:**
-- **Repository:** ${{ steps.repo-info.outputs.repo-name }}
-- **Base Branch:** ${{ steps.base-branch.outputs.base-branch }}
-- **Update Date:** $(date +"%Y-%m-%d %H:%M:%S UTC")
-- **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-**✅ Automated checks:**
-- Dependencies updated using \`poetry update\`
-- All changes committed and ready for review
-
----
-*This PR was created by the github-actions bot*"
-        
-        gh pr create \
-          --title "🤖 Auto update Poetry dependencies ($(date +"%Y-%m-%d"))" \
-          --body "$PR_BODY" \
-          --base "${{ steps.base-branch.outputs.base-branch }}" \
-          --head "${{ steps.repo-info.outputs.branch-name }}" \
-          --label "dependencies" \
-          --label "automated" || {
-            echo "⚠️ Failed to create PR (may already exist)"
-            exit 0
-          }
-        
-        echo "✅ Pull Request created successfully"
-        echo "::endgroup::"
-        
-    - name: 📊 Summary
+    - name: � Summary
       if: always()
+      id: summary
       run: |
         echo "::group::📊 Update Summary for ${{ steps.repo-info.outputs.repo-name }}"
         echo "Repository: ${{ steps.repo-info.outputs.repo-name }}"
@@ -296,7 +252,57 @@ ${{ steps.update-deps.outputs.update-summary }}
           echo ""
           echo "📦 Updated Packages:"
           echo "${{ steps.update-deps.outputs.update-summary }}"
+          # Store the summary for PR creation
+          echo "pr-summary=${{ steps.update-deps.outputs.update-summary }}" >> $GITHUB_OUTPUT
+        else
+          echo "pr-summary=No dependency updates detected." >> $GITHUB_OUTPUT
         fi
+        echo "::endgroup::"
+        
+    - name: �🔀 Create Pull Request
+      if: steps.commit-changes.outputs.committed == 'true'
+      working-directory: ${{ steps.repo-info.outputs.repo-name }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "::group::🔀 Creating Pull Request"
+        
+        # Create PR with actual update summary
+        gh pr create \
+          --title "🤖 Auto update Poetry dependencies ($(date +"%Y-%m-%d"))" \
+          --body-file <(cat <<EOF
+          🤖 **Automated Dependency Update**
+
+          This PR was created automatically by GitHub Actions to update Poetry dependencies.
+
+          **📋 Summary of updated packages:**
+
+          \`\`\`diff
+          ${{ steps.summary.outputs.pr-summary }}
+          \`\`\`
+
+          **🔍 Details:**
+          - **Repository:** ${{ steps.repo-info.outputs.repo-name }}
+          - **Base Branch:** ${{ steps.base-branch.outputs.base-branch }}
+          - **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          **✅ Automated checks:**
+          - Dependencies updated using \`poetry update\`
+          - All changes committed and ready for review
+
+          ---
+          *This PR was created by the github-actions bot*
+          EOF
+                    ) \
+          --base "${{ steps.base-branch.outputs.base-branch }}" \
+          --head "${{ steps.repo-info.outputs.branch-name }}" \
+          --label "dependencies" \
+          --label "automated" || {
+            echo "⚠️ Failed to create PR (may already exist)"
+            exit 0
+          }
+        
+        echo "✅ Pull Request created successfully"
         echo "::endgroup::"
         
     - name: 🧹 Cleanup cloned repository
