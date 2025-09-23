@@ -333,19 +333,21 @@ jobs:
           his PR was created by the github-actions bot*
           FBODY
         
-        # Create PR using the file
-        gh pr create \
+        # Create PR using the file and capture the URL
+        PR_URL=$(gh pr create \
           --title "🤖 Auto update Poetry dependencies ($(date +"%Y-%m-%d"))" \
           --body-file pr_body.md \
           --base "${{ steps.base-branch.outputs.base-branch }}" \
           --head "${{ steps.repo-info.outputs.branch-name }}" \
           --label "dependencies" \
-          --label "automated" || {
+          --label "automated" 2>&1) || {
             echo "⚠️ Failed to create PR (may already exist)"
+            echo "Error output: $PR_URL"
             exit 0
           }
         
         echo "✅ Pull Request created successfully"
+        echo "🔗 PR URL: $PR_URL"
         echo "::endgroup::"
         
     - name: 🧹 Cleanup cloned repository
