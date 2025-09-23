@@ -228,13 +228,9 @@ jobs:
         else
           git add .
           
-          # Build commit message dynamically to avoid YAML parsing issues
-          TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
           UPDATES="${{ steps.update-deps.outputs.update-summary }}"
           
           git commit -m "🤖 Auto update Poetry dependencies
-
-$TIMESTAMP
 
 Updates:
 $UPDATES"
