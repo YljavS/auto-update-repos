@@ -276,34 +276,34 @@ jobs:
         
         # Create PR body in a temporary file to avoid issues with heredoc and GitHub expressions
         cat > pr_body.md << 'EOFBODY'
-🤖 **Automated Dependency Update**
+        🤖 **Automated Dependency Update**
 
-This PR was created automatically by GitHub Actions to update Poetry dependencies.
+        This PR was created automatically by GitHub Actions to update Poetry dependencies.
 
-**📋 Summary of updated packages:**
+        **📋 Summary of updated packages:**
 
-```diff
-EOFBODY
-        # Add the actual summary
-        echo "${{ steps.summary.outputs.pr-summary }}" >> pr_body.md
-        
-        # Complete the PR body
-        cat >> pr_body.md << 'EOFBODY'
-```
+        ```diff
+        EOFBODY
+                # Add the actual summary
+                echo "${{ steps.summary.outputs.pr-summary }}" >> pr_body.md
+                
+                # Complete the PR body
+                cat >> pr_body.md << 'EOFBODY'
+        ```
 
-**🔍 Details:**
-- **Repository:** ${{ steps.repo-info.outputs.repo-name }}
-- **Base Branch:** ${{ steps.repo-info.outputs.base-branch }}
-- **Update Branch:** ${{ steps.repo-info.outputs.branch-name }}
-- **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        **🔍 Details:**
+        - **Repository:** ${{ steps.repo-info.outputs.repo-name }}
+        - **Base Branch:** ${{ steps.repo-info.outputs.base-branch }}
+        - **Update Branch:** ${{ steps.repo-info.outputs.branch-name }}
+        - **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-**✅ Automated checks:**
-- Dependencies updated using `poetry update`
-- All changes committed and ready for review
+        **✅ Automated checks:**
+        - Dependencies updated using `poetry update`
+        - All changes committed and ready for review
 
----
-*This PR was created by the github-actions bot*
-EOFBODY
+        ---
+        *This PR was created by the github-actions bot*
+        EOFBODY
     
         # Create PR using the file and capture the URL
         PR_URL=$(gh pr create \
