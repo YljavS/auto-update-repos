@@ -1,0 +1,321 @@
+name: Auto Update Poetry Dependencies
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Python version to use (e.g., "3.11", "3.x")'
+        required: false
+        type: string
+        default: '3.x'
+      branch:
+        description: 'Branch to create update branch from and make PR to (e.g., "main", "develop", "development")'
+        required: true
+        type: string
+    secrets:
+      PERSONAL_ACCESS_TOKEN:
+        description: 'GitHub token with repo access'
+        required: true
+      JFROG_USERNAME:
+        description: 'JFrog Artifactory username'
+        required: true
+      JFROG_TOKEN:
+        description: 'JFrog Artifactory token'
+        required: true
+
+jobs:
+  update-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 🔧 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        fetch-depth: 0
+        
+    - name: 🛡️ Check if target branch is allowed
+      id: branch-check
+      run: |
+        echo "::group::🛡️ Checking target branch"
+        TARGET_BRANCH="${{ inputs.branch }}"
+        echo "Target branch: $TARGET_BRANCH"
+        
+        # Check if target branch is one of the allowed branches
+        if [[ "$TARGET_BRANCH" =~ ^(main|dev|develop|development|release)$ ]]; then
+          echo "✅ Branch '$TARGET_BRANCH' is allowed for auto-updates"
+          echo "allowed=true" >> $GITHUB_OUTPUT
+          echo "target-branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Branch '$TARGET_BRANCH' is not allowed for auto-updates"
+          echo "ℹ️ Auto-updates only allowed for: main, dev, develop, development, release"
+          echo "allowed=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        echo "::endgroup::"
+        
+    - name: 📦 Install Poetry
+      if: steps.branch-check.outputs.allowed == 'true'
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        
+    - name: ⚙️ Configure git for github-actions bot
+      if: steps.branch-check.outputs.allowed == 'true'
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        
+    - name: 🏭 Configure Poetry for JFrog Artifactory
+      if: steps.branch-check.outputs.allowed == 'true' && secrets.JFROG_USERNAME != '' && secrets.JFROG_TOKEN != ''
+      env:
+        JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
+        JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
+      run: |
+        echo "::group::🏭 Configuring Poetry for JFrog Artifactory"
+        # Configure Poetry to use JFrog Artifactory credentials globally
+        poetry config http-basic.artifactory "$JFROG_USERNAME" "$JFROG_TOKEN"
+        echo "✅ Poetry configured for JFrog Artifactory (global)"
+        echo "::endgroup::"
+        
+    - name: 📊 Extract repository information and checkout target branch
+      if: steps.branch-check.outputs.allowed == 'true'
+      id: repo-info
+      run: |
+        echo "::group::📊 Setting up repository information"
+        
+        REPO_NAME="${{ github.event.repository.name }}"
+        TARGET_BRANCH="${{ steps.branch-check.outputs.target-branch }}"
+        
+        # Checkout target branch first
+        echo "Checking out target branch: $TARGET_BRANCH"
+        git checkout "$TARGET_BRANCH"
+        git pull origin "$TARGET_BRANCH"
+        
+        BRANCH_NAME="auto-update-$REPO_NAME-$TARGET_BRANCH-$(date +%Y%m%d)"
+        
+        echo "repo-name=$REPO_NAME" >> $GITHUB_OUTPUT
+        echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        echo "base-branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+        
+        echo "🏷️ Repository: $REPO_NAME"
+        echo "🌿 Base branch: $TARGET_BRANCH" 
+        echo "🆕 New branch: $BRANCH_NAME"
+        echo "::endgroup::"
+        
+    - name: 🐍 Detect Python version from project
+      if: steps.branch-check.outputs.allowed == 'true' && (inputs.python-version == '' || inputs.python-version == '3.x')
+      id: python-version
+      run: |
+        echo "::group::🐍 Detecting Python version from project"
+        
+        if [ -f "pyproject.toml" ]; then
+          # Extract Python version using grep and sed (no additional dependencies needed)
+          PYTHON_VERSION=$(grep -E '^\s*python\s*=' pyproject.toml | head -1 | sed -E 's/.*["\047]([^"\047]*)["\047].*/\1/' | sed -E 's/[^0-9.]*([0-9]+\.[0-9]+).*/\1/' || echo "3.x")
+          
+          # Validate extracted version
+          if [[ "$PYTHON_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "🐍 Found Python version in pyproject.toml: $PYTHON_VERSION"
+          else
+            echo "ℹ️ Could not parse Python version from pyproject.toml, using default"
+            PYTHON_VERSION="3.x"
+          fi
+        else
+          echo "ℹ️ No pyproject.toml found, using default Python version"
+          PYTHON_VERSION="3.x"
+        fi
+        
+        echo "🐍 Detected Python version: $PYTHON_VERSION"
+        echo "python-version=$PYTHON_VERSION" >> $GITHUB_OUTPUT
+        echo "::endgroup::"
+        
+    - name: 🐍 Setup project-specific Python version
+      if: steps.branch-check.outputs.allowed == 'true'
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version != '' && inputs.python-version != '3.x' && inputs.python-version || steps.python-version.outputs.python-version || '3.x' }}
+        
+    - name: 🧹 Clean up existing branch
+      if: steps.branch-check.outputs.allowed == 'true'
+      run: |
+        echo "::group::🧹 Cleaning up existing automation branch"
+        BRANCH_NAME="${{ steps.repo-info.outputs.branch-name }}"
+        
+        # Delete local branch if exists
+        git branch -D "$BRANCH_NAME" 2>/dev/null || echo "ℹ️ Local branch doesn't exist"
+        
+        # Delete remote branch if exists  
+        if git ls-remote --exit-code --heads origin "$BRANCH_NAME" &>/dev/null; then
+          git push origin --delete "$BRANCH_NAME" || echo "⚠️ Failed to delete remote branch"
+          echo "🗑️ Deleted existing remote branch: $BRANCH_NAME"
+        else
+          echo "ℹ️ Remote branch doesn't exist: $BRANCH_NAME"
+        fi
+        echo "::endgroup::"
+        
+    - name: 🆕 Create new branch
+      if: steps.branch-check.outputs.allowed == 'true'
+      run: |
+        BRANCH_NAME="${{ steps.repo-info.outputs.branch-name }}"
+        git checkout -b "$BRANCH_NAME"
+        echo "✅ Created new branch: $BRANCH_NAME"
+        
+    - name: 📦 Install dependencies
+      if: steps.branch-check.outputs.allowed == 'true'
+      run: |
+        echo "::group::📦 Installing current dependencies"
+        if [ ! -f "pyproject.toml" ]; then
+          echo "❌ No pyproject.toml found, skipping Poetry operations"
+          echo "skip-poetry=true" >> $GITHUB_ENV
+          exit 0
+        fi
+        poetry install
+        echo "✅ Dependencies installed"
+        echo "::endgroup::"
+        
+    - name: 🔄 Update dependencies and capture changes
+      if: steps.branch-check.outputs.allowed == 'true'
+      id: update-deps
+      run: |
+        if [ "${{ env.skip-poetry }}" = "true" ]; then
+          echo "⏭️ Skipping Poetry update - no pyproject.toml"
+          echo "has-updates=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        echo "::group::🔄 Updating dependencies"
+        
+        # Capture poetry update output
+        UPDATE_OUTPUT=$(poetry update 2>&1 || true)
+        echo "Raw update output:"
+        echo "$UPDATE_OUTPUT"
+        
+        # Extract updated packages and clean them up
+        UPDATES=$(echo "$UPDATE_OUTPUT" | grep -E '^\s*- (Updating|Installing|Removing)' | sed 's/^[[:space:]]*//' || echo "")
+        
+        if [ -z "$UPDATES" ]; then
+          echo "ℹ️ No dependency updates detected"
+          echo "has-updates=false" >> $GITHUB_OUTPUT
+          echo "update-summary=No dependency updates detected." >> $GITHUB_OUTPUT
+        else
+          echo "✅ Dependencies updated:"
+          echo "$UPDATES"
+          echo "has-updates=true" >> $GITHUB_OUTPUT
+          # Clean up the updates and format them properly
+          CLEAN_UPDATES=$(echo "$UPDATES" | sed 's/^- /• /' | tr '\n' '\n')
+          # Use delimiter for multiline output
+          {
+            echo "update-summary<<EOF"
+            echo "$CLEAN_UPDATES"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+        fi
+        echo "::endgroup::"
+        
+    - name: 📝 Commit and push changes
+      if: steps.branch-check.outputs.allowed == 'true'
+      id: commit-changes
+      run: |
+        if [ "${{ env.skip-poetry }}" = "true" ] || [ "${{ steps.update-deps.outputs.has-updates }}" = "false" ]; then
+          echo "⏭️ No changes to commit"
+          echo "committed=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        echo "::group::📝 Committing changes"
+        
+        # Check if there are changes to commit
+        if git diff --quiet && git diff --staged --quiet; then
+          echo "ℹ️ No changes detected in git"
+          echo "committed=false" >> $GITHUB_OUTPUT
+        else
+          git add .
+          
+          # Simple commit message to avoid YAML parsing issues
+          git commit -m "🤖 Auto update Poetry dependencies"
+          
+          git push --set-upstream origin "${{ steps.repo-info.outputs.branch-name }}"
+          echo "✅ Changes committed and pushed"
+          echo "committed=true" >> $GITHUB_OUTPUT
+        fi
+        echo "::endgroup::"
+
+    - name: 📝 Summary
+      if: always() && steps.branch-check.outputs.allowed == 'true'
+      id: summary
+      run: |
+        echo "::group::📊 Update Summary for ${{ steps.repo-info.outputs.repo-name }}"
+        echo "Repository: ${{ steps.repo-info.outputs.repo-name }}"
+        echo "Base Branch: ${{ steps.repo-info.outputs.base-branch }}"
+        echo "Update Branch: ${{ steps.repo-info.outputs.branch-name }}"
+        echo "Had Updates: ${{ steps.update-deps.outputs.has-updates }}"
+        echo "Changes Committed: ${{ steps.commit-changes.outputs.committed }}"
+        
+        if [ "${{ steps.update-deps.outputs.has-updates }}" = "true" ]; then
+          echo ""
+          echo "📦 Updated Packages:"
+          echo "${{ steps.update-deps.outputs.update-summary }}"
+          # Store the summary for PR creation using proper delimiter
+          {
+            echo "pr-summary<<EOF"
+            echo "${{ steps.update-deps.outputs.update-summary }}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+        else
+          echo "pr-summary=No dependency updates detected." >> $GITHUB_OUTPUT
+        fi
+        echo "::endgroup::"
+
+    - name: 🔀Create Pull Request
+      if: steps.branch-check.outputs.allowed == 'true' && steps.commit-changes.outputs.committed == 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      run: |
+        echo "::group::🔀 Creating Pull Request"
+        
+        # Create PR body in a temporary file to avoid issues with heredoc and GitHub expressions
+        cat > pr_body.md << 'EOFBODY'
+🤖 **Automated Dependency Update**
+
+This PR was created automatically by GitHub Actions to update Poetry dependencies.
+
+**📋 Summary of updated packages:**
+
+```diff
+EOFBODY
+        # Add the actual summary
+        echo "${{ steps.summary.outputs.pr-summary }}" >> pr_body.md
+        
+        # Complete the PR body
+        cat >> pr_body.md << 'EOFBODY'
+```
+
+**🔍 Details:**
+- **Repository:** ${{ steps.repo-info.outputs.repo-name }}
+- **Base Branch:** ${{ steps.repo-info.outputs.base-branch }}
+- **Update Branch:** ${{ steps.repo-info.outputs.branch-name }}
+- **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+**✅ Automated checks:**
+- Dependencies updated using `poetry update`
+- All changes committed and ready for review
+
+---
+*This PR was created by the github-actions bot*
+EOFBODY
+    
+        # Create PR using the file and capture the URL
+        PR_URL=$(gh pr create \
+          --title "🤖 Auto update Poetry dependencies ($(date +"%Y-%m-%d"))" \
+          --body-file pr_body.md \
+          --base "${{ steps.repo-info.outputs.base-branch }}" \
+          --head "${{ steps.repo-info.outputs.branch-name }}" 2>&1) || {
+            echo "⚠️ Failed to create PR (may already exist)"
+            echo "Error output: $PR_URL"
+            exit 0
+          }
+        
+        echo "✅ Pull Request created successfully"
+        echo "🔗 PR URL: $PR_URL"
+        echo "::endgroup::"

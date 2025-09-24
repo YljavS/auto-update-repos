@@ -1,377 +1,377 @@
-name: Auto Update Dependencies
+# name: Auto Update Dependencies
 
-on:
-  schedule:
-    # Run every Monday at 9:00 AM UTC
-    - cron: '0 9 * * 1'
-  workflow_dispatch: # Allow manual triggering
-    inputs:
-      repositories:
-        description: 'Specific repositories to update (comma-separated URLs), leave empty for all'
-        required: false
-        type: string
+# on:
+#   schedule:
+#     # Run every Monday at 9:00 AM UTC
+#     - cron: '0 9 * * 1'
+#   workflow_dispatch: # Allow manual triggering
+#     inputs:
+#       repositories:
+#         description: 'Specific repositories to update (comma-separated URLs), leave empty for all'
+#         required: false
+#         type: string
 
-jobs:
-  update-dependencies:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        repository: 
-          - "https://github.com/Alliander/rha_file_upload_tool.git"
-          - "https://github.com/Alliander/rha-mule.git"
-          # Add more repositories here as needed
-          - "https://github.com/Alliander/aannemerij_forecast_GVRN.git"
-          - "https://github.com/Alliander/aannemerij_forecast_GVRN_frontend.git"
-      fail-fast: false # Continue with other repos even if one fails
+# jobs:
+#   update-dependencies:
+#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         repository: 
+#           - "https://github.com/Alliander/rha_file_upload_tool.git"
+#           - "https://github.com/Alliander/rha-mule.git"
+#           # Add more repositories here as needed
+#           - "https://github.com/Alliander/aannemerij_forecast_GVRN.git"
+#           - "https://github.com/Alliander/aannemerij_forecast_GVRN_frontend.git"
+#       fail-fast: false # Continue with other repos even if one fails
     
-    steps:
-    - name: 🔧 Checkout automation repository
-      uses: actions/checkout@v4
+#     steps:
+#     - name: 🔧 Checkout automation repository
+#       uses: actions/checkout@v4
         
-    - name: 📦 Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: latest
-        virtualenvs-create: true
-        virtualenvs-in-project: true
+#     - name: 📦 Install Poetry
+#       uses: snok/install-poetry@v1
+#       with:
+#         version: latest
+#         virtualenvs-create: true
+#         virtualenvs-in-project: true
         
-    - name: ⚙️ Configure git for github-actions bot
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+#     - name: ⚙️ Configure git for github-actions bot
+#       run: |
+#         git config --global user.name "github-actions[bot]"
+#         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
-    - name: 🏭 Configure Poetry for JFrog Artifactory
-      env:
-        JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
-        JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
-      run: |
-        echo "::group::🏭 Configuring Poetry for JFrog Artifactory"
-        # Configure Poetry to use JFrog Artifactory credentials globally
-        poetry config http-basic.artifactory "$JFROG_USERNAME" "$JFROG_TOKEN"
-        echo "✅ Poetry configured for JFrog Artifactory (global)"
-        echo "::endgroup::"
+#     - name: 🏭 Configure Poetry for JFrog Artifactory
+#       env:
+#         JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
+#         JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
+#       run: |
+#         echo "::group::🏭 Configuring Poetry for JFrog Artifactory"
+#         # Configure Poetry to use JFrog Artifactory credentials globally
+#         poetry config http-basic.artifactory "$JFROG_USERNAME" "$JFROG_TOKEN"
+#         echo "✅ Poetry configured for JFrog Artifactory (global)"
+#         echo "::endgroup::"
         
-    - name: 📊 Extract repository information
-      id: repo-info
-      run: |
-        REPO_URL="${{ matrix.repository }}"
-        REPO_NAME=$(basename "$REPO_URL" .git)
-        echo "repo-name=$REPO_NAME" >> $GITHUB_OUTPUT
-        echo "repo-url=$REPO_URL" >> $GITHUB_OUTPUT
-        echo "branch-name=auto-update-dependencies-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
+#     - name: 📊 Extract repository information
+#       id: repo-info
+#       run: |
+#         REPO_URL="${{ matrix.repository }}"
+#         REPO_NAME=$(basename "$REPO_URL" .git)
+#         echo "repo-name=$REPO_NAME" >> $GITHUB_OUTPUT
+#         echo "repo-url=$REPO_URL" >> $GITHUB_OUTPUT
+#         echo "branch-name=auto-update-dependencies-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
         
-    - name: 🔍 Debug token access
-      env:
-        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-      run: |
-        echo "Testing Personal Access Token..."
-        echo "User info:"
-        curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user
-        echo ""
-        echo "Testing Alliander org access:"
-        curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/orgs/Alliander
-        echo ""
-        echo "Testing repo access:"
-        curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/Alliander/rha-mule
+#     - name: 🔍 Debug token access
+#       env:
+#         GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+#       run: |
+#         echo "Testing Personal Access Token..."
+#         echo "User info:"
+#         curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user
+#         echo ""
+#         echo "Testing Alliander org access:"
+#         curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/orgs/Alliander
+#         echo ""
+#         echo "Testing repo access:"
+#         curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/Alliander/rha-mule
         
-    - name: 🔄 Clone target repository
-      env:
-        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-      run: |
-        echo "::group::🔄 Cloning repository: ${{ steps.repo-info.outputs.repo-name }}"
-        if [ -d "${{ steps.repo-info.outputs.repo-name }}" ]; then
-          echo "📂 Directory already exists, removing and re-cloning"
-          rm -rf "${{ steps.repo-info.outputs.repo-name }}"
-        fi
+#     - name: 🔄 Clone target repository
+#       env:
+#         GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+#       run: |
+#         echo "::group::🔄 Cloning repository: ${{ steps.repo-info.outputs.repo-name }}"
+#         if [ -d "${{ steps.repo-info.outputs.repo-name }}" ]; then
+#           echo "📂 Directory already exists, removing and re-cloning"
+#           rm -rf "${{ steps.repo-info.outputs.repo-name }}"
+#         fi
         
-        # Try using GitHub CLI for cloning (better SAML SSO support)
-        echo "Attempting to clone with GitHub CLI..."
-        gh repo clone "Alliander/${{ steps.repo-info.outputs.repo-name }}" "${{ steps.repo-info.outputs.repo-name }}" || {
-          echo "GitHub CLI failed, trying direct git clone with PAT..."
+#         # Try using GitHub CLI for cloning (better SAML SSO support)
+#         echo "Attempting to clone with GitHub CLI..."
+#         gh repo clone "Alliander/${{ steps.repo-info.outputs.repo-name }}" "${{ steps.repo-info.outputs.repo-name }}" || {
+#           echo "GitHub CLI failed, trying direct git clone with PAT..."
           
-          # Fallback to direct git clone with PAT authentication
-          REPO_URL="${{ steps.repo-info.outputs.repo-url }}"
-          AUTHENTICATED_URL=$(echo "$REPO_URL" | sed "s|https://github.com/|https://x-access-token:${GITHUB_TOKEN}@github.com/|")
-          git clone "$AUTHENTICATED_URL" "${{ steps.repo-info.outputs.repo-name }}"
-        }
+#           # Fallback to direct git clone with PAT authentication
+#           REPO_URL="${{ steps.repo-info.outputs.repo-url }}"
+#           AUTHENTICATED_URL=$(echo "$REPO_URL" | sed "s|https://github.com/|https://x-access-token:${GITHUB_TOKEN}@github.com/|")
+#           git clone "$AUTHENTICATED_URL" "${{ steps.repo-info.outputs.repo-name }}"
+#         }
         
-        echo "✅ Successfully cloned ${{ steps.repo-info.outputs.repo-name }}"
-        echo "::endgroup::"
+#         echo "✅ Successfully cloned ${{ steps.repo-info.outputs.repo-name }}"
+#         echo "::endgroup::"
         
-    - name: 🐍 Detect Python version from project
-      id: python-version
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      run: |
-        echo "::group::🐍 Detecting Python version"
-        if [ -f "pyproject.toml" ]; then
-          # Extract Python version using grep and sed (no additional dependencies needed)
-          PYTHON_VERSION=$(grep -E '^\s*python\s*=' pyproject.toml | head -1 | sed -E 's/.*["\047]([^"\047]*)["\047].*/\1/' | sed -E 's/[^0-9.]*([0-9]+\.[0-9]+).*/\1/' || echo "3.x")
+#     - name: 🐍 Detect Python version from project
+#       id: python-version
+#       working-directory: ${{ steps.repo-info.outputs.repo-name }}
+#       run: |
+#         echo "::group::🐍 Detecting Python version"
+#         if [ -f "pyproject.toml" ]; then
+#           # Extract Python version using grep and sed (no additional dependencies needed)
+#           PYTHON_VERSION=$(grep -E '^\s*python\s*=' pyproject.toml | head -1 | sed -E 's/.*["\047]([^"\047]*)["\047].*/\1/' | sed -E 's/[^0-9.]*([0-9]+\.[0-9]+).*/\1/' || echo "3.x")
           
-          # Validate extracted version
-          if [[ "$PYTHON_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
-            echo "🐍 Found Python version in pyproject.toml: $PYTHON_VERSION"
-          else
-            echo "ℹ️ Could not parse Python version from pyproject.toml, using default"
-            PYTHON_VERSION="3.x"
-          fi
-        else
-          echo "ℹ️ No pyproject.toml found, using default Python version"
-          PYTHON_VERSION="3.x"
-        fi
+#           # Validate extracted version
+#           if [[ "$PYTHON_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
+#             echo "🐍 Found Python version in pyproject.toml: $PYTHON_VERSION"
+#           else
+#             echo "ℹ️ Could not parse Python version from pyproject.toml, using default"
+#             PYTHON_VERSION="3.x"
+#           fi
+#         else
+#           echo "ℹ️ No pyproject.toml found, using default Python version"
+#           PYTHON_VERSION="3.x"
+#         fi
         
-        echo "🐍 Using Python version: $PYTHON_VERSION"
-        echo "python-version=$PYTHON_VERSION" >> $GITHUB_OUTPUT
-        echo "::endgroup::"
+#         echo "🐍 Using Python version: $PYTHON_VERSION"
+#         echo "python-version=$PYTHON_VERSION" >> $GITHUB_OUTPUT
+#         echo "::endgroup::"
         
-    - name: 🐍 Setup project-specific Python version
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ steps.python-version.outputs.python-version }}
+#     - name: 🐍 Setup project-specific Python version
+#       uses: actions/setup-python@v5
+#       with:
+#         python-version: ${{ steps.python-version.outputs.python-version }}
         
-    - name: 🔗 Configure git remote with authentication
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-      run: |
-        echo "::group::🔗 Setting up authenticated git remote"
-        REPO_URL="${{ steps.repo-info.outputs.repo-url }}"
-        AUTHENTICATED_URL=$(echo "$REPO_URL" | sed "s|https://github.com/|https://x-access-token:${GITHUB_TOKEN}@github.com/|")
-        git remote set-url origin "$AUTHENTICATED_URL"
-        echo "✅ Git remote configured with authentication"
-        echo "::endgroup::"
+#     - name: 🔗 Configure git remote with authentication
+#       working-directory: ${{ steps.repo-info.outputs.repo-name }}
+#       env:
+#         GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+#       run: |
+#         echo "::group::🔗 Setting up authenticated git remote"
+#         REPO_URL="${{ steps.repo-info.outputs.repo-url }}"
+#         AUTHENTICATED_URL=$(echo "$REPO_URL" | sed "s|https://github.com/|https://x-access-token:${GITHUB_TOKEN}@github.com/|")
+#         git remote set-url origin "$AUTHENTICATED_URL"
+#         echo "✅ Git remote configured with authentication"
+#         echo "::endgroup::"
         
-    - name: 🌿 Determine base branch and checkout
-      id: base-branch
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      run: |
-        echo "::group::🌿 Determining base branch"
-        BASE_BRANCH=""
-        for branch in develop development main; do
-          if git ls-remote --heads origin "$branch" | grep -q "$branch"; then
-            BASE_BRANCH="$branch"
-            echo "✅ Found base branch: $BASE_BRANCH"
-            break
-          fi
-        done
+#     - name: 🌿 Determine base branch and checkout
+#       id: base-branch
+#       working-directory: ${{ steps.repo-info.outputs.repo-name }}
+#       run: |
+#         echo "::group::🌿 Determining base branch"
+#         BASE_BRANCH=""
+#         for branch in develop development main; do
+#           if git ls-remote --heads origin "$branch" | grep -q "$branch"; then
+#             BASE_BRANCH="$branch"
+#             echo "✅ Found base branch: $BASE_BRANCH"
+#             break
+#           fi
+#         done
         
-        if [ -z "$BASE_BRANCH" ]; then
-          echo "⚠️ No standard base branch found, defaulting to main"
-          BASE_BRANCH="main"
-        fi
+#         if [ -z "$BASE_BRANCH" ]; then
+#           echo "⚠️ No standard base branch found, defaulting to main"
+#           BASE_BRANCH="main"
+#         fi
         
-        echo "base-branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
-        git checkout "$BASE_BRANCH"
-        git pull origin "$BASE_BRANCH"
-        echo "✅ Checked out and updated $BASE_BRANCH"
-        echo "::endgroup::"
+#         echo "base-branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+#         git checkout "$BASE_BRANCH"
+#         git pull origin "$BASE_BRANCH"
+#         echo "✅ Checked out and updated $BASE_BRANCH"
+#         echo "::endgroup::"
         
-    - name: 🧹 Clean up existing branch
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      run: |
-        echo "::group::🧹 Cleaning up existing automation branch"
-        BRANCH_NAME="${{ steps.repo-info.outputs.branch-name }}"
+#     - name: 🧹 Clean up existing branch
+#       working-directory: ${{ steps.repo-info.outputs.repo-name }}
+#       run: |
+#         echo "::group::🧹 Cleaning up existing automation branch"
+#         BRANCH_NAME="${{ steps.repo-info.outputs.branch-name }}"
         
-        # Delete local branch if exists
-        git branch -D "$BRANCH_NAME" 2>/dev/null || echo "ℹ️ Local branch doesn't exist"
+#         # Delete local branch if exists
+#         git branch -D "$BRANCH_NAME" 2>/dev/null || echo "ℹ️ Local branch doesn't exist"
         
-        # Delete remote branch if exists  
-        if git ls-remote --exit-code --heads origin "$BRANCH_NAME" &>/dev/null; then
-          git push origin --delete "$BRANCH_NAME" || echo "⚠️ Failed to delete remote branch"
-          echo "🗑️ Deleted existing remote branch: $BRANCH_NAME"
-        else
-          echo "ℹ️ Remote branch doesn't exist: $BRANCH_NAME"
-        fi
-        echo "::endgroup::"
+#         # Delete remote branch if exists  
+#         if git ls-remote --exit-code --heads origin "$BRANCH_NAME" &>/dev/null; then
+#           git push origin --delete "$BRANCH_NAME" || echo "⚠️ Failed to delete remote branch"
+#           echo "🗑️ Deleted existing remote branch: $BRANCH_NAME"
+#         else
+#           echo "ℹ️ Remote branch doesn't exist: $BRANCH_NAME"
+#         fi
+#         echo "::endgroup::"
         
-    - name: 🆕 Create new branch
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      run: |
-        BRANCH_NAME="${{ steps.repo-info.outputs.branch-name }}"
-        git checkout -b "$BRANCH_NAME"
-        echo "✅ Created new branch: $BRANCH_NAME"
+#     - name: 🆕 Create new branch
+#       working-directory: ${{ steps.repo-info.outputs.repo-name }}
+#       run: |
+#         BRANCH_NAME="${{ steps.repo-info.outputs.branch-name }}"
+#         git checkout -b "$BRANCH_NAME"
+#         echo "✅ Created new branch: $BRANCH_NAME"
         
-    - name: 📦 Install dependencies
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      run: |
-        echo "::group::📦 Installing current dependencies"
-        if [ ! -f "pyproject.toml" ]; then
-          echo "❌ No pyproject.toml found, skipping Poetry operations"
-          echo "skip-poetry=true" >> $GITHUB_ENV
-          exit 0
-        fi
-        poetry install
-        echo "✅ Dependencies installed"
-        echo "::endgroup::"
+#     - name: 📦 Install dependencies
+#       working-directory: ${{ steps.repo-info.outputs.repo-name }}
+#       run: |
+#         echo "::group::📦 Installing current dependencies"
+#         if [ ! -f "pyproject.toml" ]; then
+#           echo "❌ No pyproject.toml found, skipping Poetry operations"
+#           echo "skip-poetry=true" >> $GITHUB_ENV
+#           exit 0
+#         fi
+#         poetry install
+#         echo "✅ Dependencies installed"
+#         echo "::endgroup::"
         
-    - name: 🔄 Update dependencies and capture changes
-      id: update-deps
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      run: |
-        if [ "${{ env.skip-poetry }}" = "true" ]; then
-          echo "⏭️ Skipping Poetry update - no pyproject.toml"
-          echo "has-updates=false" >> $GITHUB_OUTPUT
-          exit 0
-        fi
+#     - name: 🔄 Update dependencies and capture changes
+#       id: update-deps
+#       working-directory: ${{ steps.repo-info.outputs.repo-name }}
+#       run: |
+#         if [ "${{ env.skip-poetry }}" = "true" ]; then
+#           echo "⏭️ Skipping Poetry update - no pyproject.toml"
+#           echo "has-updates=false" >> $GITHUB_OUTPUT
+#           exit 0
+#         fi
         
-        echo "::group::🔄 Updating dependencies"
+#         echo "::group::🔄 Updating dependencies"
         
-        # Capture poetry update output
-        UPDATE_OUTPUT=$(poetry update 2>&1 || true)
-        echo "Raw update output:"
-        echo "$UPDATE_OUTPUT"
+#         # Capture poetry update output
+#         UPDATE_OUTPUT=$(poetry update 2>&1 || true)
+#         echo "Raw update output:"
+#         echo "$UPDATE_OUTPUT"
         
-        # Extract updated packages and clean them up
-        UPDATES=$(echo "$UPDATE_OUTPUT" | grep -E '^\s*- (Updating|Installing|Removing)' | sed 's/^[[:space:]]*//' || echo "")
+#         # Extract updated packages and clean them up
+#         UPDATES=$(echo "$UPDATE_OUTPUT" | grep -E '^\s*- (Updating|Installing|Removing)' | sed 's/^[[:space:]]*//' || echo "")
         
-        if [ -z "$UPDATES" ]; then
-          echo "ℹ️ No dependency updates detected"
-          echo "has-updates=false" >> $GITHUB_OUTPUT
-          echo "update-summary=No dependency updates detected." >> $GITHUB_OUTPUT
-        else
-          echo "✅ Dependencies updated:"
-          echo "$UPDATES"
-          echo "has-updates=true" >> $GITHUB_OUTPUT
-          # Clean up the updates and format them properly
-          CLEAN_UPDATES=$(echo "$UPDATES" | sed 's/^- /• /' | tr '\n' '\n')
-          # Use delimiter for multiline output
-          {
-            echo "update-summary<<EOF"
-            echo "$CLEAN_UPDATES"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
-        fi
-        echo "::endgroup::"
+#         if [ -z "$UPDATES" ]; then
+#           echo "ℹ️ No dependency updates detected"
+#           echo "has-updates=false" >> $GITHUB_OUTPUT
+#           echo "update-summary=No dependency updates detected." >> $GITHUB_OUTPUT
+#         else
+#           echo "✅ Dependencies updated:"
+#           echo "$UPDATES"
+#           echo "has-updates=true" >> $GITHUB_OUTPUT
+#           # Clean up the updates and format them properly
+#           CLEAN_UPDATES=$(echo "$UPDATES" | sed 's/^- /• /' | tr '\n' '\n')
+#           # Use delimiter for multiline output
+#           {
+#             echo "update-summary<<EOF"
+#             echo "$CLEAN_UPDATES"
+#             echo "EOF"
+#           } >> $GITHUB_OUTPUT
+#         fi
+#         echo "::endgroup::"
         
-    - name: 📝 Commit and push changes
-      id: commit-changes
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      run: |
-        if [ "${{ env.skip-poetry }}" = "true" ] || [ "${{ steps.update-deps.outputs.has-updates }}" = "false" ]; then
-          echo "⏭️ No changes to commit"
-          echo "committed=false" >> $GITHUB_OUTPUT
-          exit 0
-        fi
+#     - name: 📝 Commit and push changes
+#       id: commit-changes
+#       working-directory: ${{ steps.repo-info.outputs.repo-name }}
+#       run: |
+#         if [ "${{ env.skip-poetry }}" = "true" ] || [ "${{ steps.update-deps.outputs.has-updates }}" = "false" ]; then
+#           echo "⏭️ No changes to commit"
+#           echo "committed=false" >> $GITHUB_OUTPUT
+#           exit 0
+#         fi
         
-        echo "::group::📝 Committing changes"
+#         echo "::group::📝 Committing changes"
         
-        # Check if there are changes to commit
-        if git diff --quiet && git diff --staged --quiet; then
-          echo "ℹ️ No changes detected in git"
-          echo "committed=false" >> $GITHUB_OUTPUT
-        else
-          git add .
+#         # Check if there are changes to commit
+#         if git diff --quiet && git diff --staged --quiet; then
+#           echo "ℹ️ No changes detected in git"
+#           echo "committed=false" >> $GITHUB_OUTPUT
+#         else
+#           git add .
           
-          # Simple commit message to avoid YAML parsing issues
-          git commit -m "🤖 Auto update Poetry dependencies"
+#           # Simple commit message to avoid YAML parsing issues
+#           git commit -m "🤖 Auto update Poetry dependencies"
           
-          git push --set-upstream origin "${{ steps.repo-info.outputs.branch-name }}"
-          echo "✅ Changes committed and pushed"
-          echo "committed=true" >> $GITHUB_OUTPUT
-        fi
-        echo "::endgroup::"
+#           git push --set-upstream origin "${{ steps.repo-info.outputs.branch-name }}"
+#           echo "✅ Changes committed and pushed"
+#           echo "committed=true" >> $GITHUB_OUTPUT
+#         fi
+#         echo "::endgroup::"
 
-    - name: 📝 Summary
-      if: always()
-      id: summary
-      run: |
-        echo "::group::📊 Update Summary for ${{ steps.repo-info.outputs.repo-name }}"
-        echo "Repository: ${{ steps.repo-info.outputs.repo-name }}"
-        echo "Base Branch: ${{ steps.base-branch.outputs.base-branch }}"
-        echo "Update Branch: ${{ steps.repo-info.outputs.branch-name }}"
-        echo "Had Updates: ${{ steps.update-deps.outputs.has-updates }}"
-        echo "Changes Committed: ${{ steps.commit-changes.outputs.committed }}"
+#     - name: 📝 Summary
+#       if: always()
+#       id: summary
+#       run: |
+#         echo "::group::📊 Update Summary for ${{ steps.repo-info.outputs.repo-name }}"
+#         echo "Repository: ${{ steps.repo-info.outputs.repo-name }}"
+#         echo "Base Branch: ${{ steps.base-branch.outputs.base-branch }}"
+#         echo "Update Branch: ${{ steps.repo-info.outputs.branch-name }}"
+#         echo "Had Updates: ${{ steps.update-deps.outputs.has-updates }}"
+#         echo "Changes Committed: ${{ steps.commit-changes.outputs.committed }}"
         
-        if [ "${{ steps.update-deps.outputs.has-updates }}" = "true" ]; then
-          echo ""
-          echo "📦 Updated Packages:"
-          echo "${{ steps.update-deps.outputs.update-summary }}"
-          # Store the summary for PR creation using proper delimiter
-          {
-            echo "pr-summary<<EOF"
-            echo "${{ steps.update-deps.outputs.update-summary }}"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
-        else
-          echo "pr-summary=No dependency updates detected." >> $GITHUB_OUTPUT
-        fi
-        echo "::endgroup::"
+#         if [ "${{ steps.update-deps.outputs.has-updates }}" = "true" ]; then
+#           echo ""
+#           echo "📦 Updated Packages:"
+#           echo "${{ steps.update-deps.outputs.update-summary }}"
+#           # Store the summary for PR creation using proper delimiter
+#           {
+#             echo "pr-summary<<EOF"
+#             echo "${{ steps.update-deps.outputs.update-summary }}"
+#             echo "EOF"
+#           } >> $GITHUB_OUTPUT
+#         else
+#           echo "pr-summary=No dependency updates detected." >> $GITHUB_OUTPUT
+#         fi
+#         echo "::endgroup::"
 
-    - name: 🔀Create Pull Request
-      if: steps.commit-changes.outputs.committed == 'true'
-      working-directory: ${{ steps.repo-info.outputs.repo-name }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-      run: |
-        echo "::group::🔀 Creating Pull Request"
+#     - name: 🔀Create Pull Request
+#       if: steps.commit-changes.outputs.committed == 'true'
+#       working-directory: ${{ steps.repo-info.outputs.repo-name }}
+#       env:
+#         GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+#       run: |
+#         echo "::group::🔀 Creating Pull Request"
         
-        # Create PR body in a temporary file to avoid issues with heredoc and GitHub expressions
-        cat > pr_body.md << 'EOFBODY'
-        🤖 **Automated Dependency Update**
+#         # Create PR body in a temporary file to avoid issues with heredoc and GitHub expressions
+#         cat > pr_body.md << 'EOFBODY'
+#         🤖 **Automated Dependency Update**
 
-        This PR was created automatically by GitHub Actions to update Poetry dependencies.
+#         This PR was created automatically by GitHub Actions to update Poetry dependencies.
 
-        **📋 Summary of updated packages:**
+#         **📋 Summary of updated packages:**
 
-        ```diff
-        EOFBODY
-                # Add the actual summary
-                echo "${{ steps.summary.outputs.pr-summary }}" >> pr_body.md
+#         ```diff
+#         EOFBODY
+#                 # Add the actual summary
+#                 echo "${{ steps.summary.outputs.pr-summary }}" >> pr_body.md
                 
-                # Complete the PR body
-                cat >> pr_body.md << 'EOFBODY'
-        ```
+#                 # Complete the PR body
+#                 cat >> pr_body.md << 'EOFBODY'
+#         ```
 
-        **🔍 Details:**
-        - **Repository:** ${{ steps.repo-info.outputs.repo-name }}
-        - **Base Branch:** ${{ steps.base-branch.outputs.base-branch }}
-        - **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+#         **🔍 Details:**
+#         - **Repository:** ${{ steps.repo-info.outputs.repo-name }}
+#         - **Base Branch:** ${{ steps.base-branch.outputs.base-branch }}
+#         - **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-        **✅ Automated checks:**
-        - Dependencies updated using `poetry update`
-        - All changes committed and ready for review
+#         **✅ Automated checks:**
+#         - Dependencies updated using `poetry update`
+#         - All changes committed and ready for review
 
-        ---
-        *This PR was created by the github-actions bot*
-        EOFBODY
+#         ---
+#         *This PR was created by the github-actions bot*
+#         EOFBODY
             
-        # Create PR using the file and capture the URL
-        PR_URL=$(gh pr create \
-          --title "🤖 Auto update Poetry dependencies ($(date +"%Y-%m-%d"))" \
-          --body-file pr_body.md \
-          --base "${{ steps.base-branch.outputs.base-branch }}" \
-          --head "${{ steps.repo-info.outputs.branch-name }}" 2>&1) || {
-            echo "⚠️ Failed to create PR (may already exist)"
-            echo "Error output: $PR_URL"
-            exit 0
-          }
+#         # Create PR using the file and capture the URL
+#         PR_URL=$(gh pr create \
+#           --title "🤖 Auto update Poetry dependencies ($(date +"%Y-%m-%d"))" \
+#           --body-file pr_body.md \
+#           --base "${{ steps.base-branch.outputs.base-branch }}" \
+#           --head "${{ steps.repo-info.outputs.branch-name }}" 2>&1) || {
+#             echo "⚠️ Failed to create PR (may already exist)"
+#             echo "Error output: $PR_URL"
+#             exit 0
+#           }
         
-        echo "✅ Pull Request created successfully"
-        echo "🔗 PR URL: $PR_URL"
-        echo "::endgroup::"
+#         echo "✅ Pull Request created successfully"
+#         echo "🔗 PR URL: $PR_URL"
+#         echo "::endgroup::"
         
-    - name: 🧹 Cleanup cloned repository
-      if: always()
-      run: |
-        echo "::group::🧹 Cleaning up cloned repository"
-        if [ -d "${{ steps.repo-info.outputs.repo-name }}" ]; then
-          rm -rf "${{ steps.repo-info.outputs.repo-name }}"
-          echo "✅ Removed cloned repository: ${{ steps.repo-info.outputs.repo-name }}"
-        else
-          echo "ℹ️ No repository directory to clean up"
-        fi
-        echo "::endgroup::"
+#     - name: 🧹 Cleanup cloned repository
+#       if: always()
+#       run: |
+#         echo "::group::🧹 Cleaning up cloned repository"
+#         if [ -d "${{ steps.repo-info.outputs.repo-name }}" ]; then
+#           rm -rf "${{ steps.repo-info.outputs.repo-name }}"
+#           echo "✅ Removed cloned repository: ${{ steps.repo-info.outputs.repo-name }}"
+#         else
+#           echo "ℹ️ No repository directory to clean up"
+#         fi
+#         echo "::endgroup::"
 
-  summary:
-    needs: update-dependencies
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-    - name: 📈 Workflow Summary
-      run: |
-        echo "::group::📈 Overall Update Summary"
-        echo "🚀 Dependency update workflow completed"
-        echo "📅 Run Date: $(date +"%Y-%m-%d %H:%M:%S UTC")"
-        echo "🔗 Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        echo ""
-        echo "Check individual job results above for detailed update information."
-        echo "::endgroup::"
+#   summary:
+#     needs: update-dependencies
+#     runs-on: ubuntu-latest
+#     if: always()
+#     steps:
+#     - name: 📈 Workflow Summary
+#       run: |
+#         echo "::group::📈 Overall Update Summary"
+#         echo "🚀 Dependency update workflow completed"
+#         echo "📅 Run Date: $(date +"%Y-%m-%d %H:%M:%S UTC")"
+#         echo "🔗 Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+#         echo ""
+#         echo "Check individual job results above for detailed update information."
+#         echo "::endgroup::"

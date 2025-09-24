@@ -1,0 +1,70 @@
+# Example usage files for the auto-update-poetry reusable workflow
+# Place these in your target repository's .github/workflows/ directory
+
+# Example 1: Update dependencies for main branch
+# File: .github/workflows/update-dependencies-main.yml
+name: Update Dependencies (Main)
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 9 AM
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  update:
+    uses: alliander/auto-update-poetry/.github/workflows/auto-update-poetry.yml@main
+    with:
+      branch: "main"
+      python-version: "3.11"  # Optional
+    secrets:
+      PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
+      JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
+
+---
+
+# Example 2: Update dependencies for develop branch
+# File: .github/workflows/update-dependencies-develop.yml
+name: Update Dependencies (Develop)
+on:
+  schedule:
+    - cron: '0 10 * * 1'  # Every Monday at 10 AM
+  workflow_dispatch:
+
+jobs:
+  update:
+    uses: alliander/auto-update-poetry/.github/workflows/auto-update-poetry.yml@main
+    with:
+      branch: "develop"
+    secrets:
+      PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
+      JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
+
+---
+
+# Example 3: Manual trigger from any branch (flexible)
+# File: .github/workflows/update-dependencies-manual.yml
+name: Manual Update Dependencies
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Target branch (main, develop, development, release)'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+        - main
+        - develop
+        - development
+        - release
+
+jobs:
+  update:
+    uses: alliander/auto-update-poetry/.github/workflows/auto-update-poetry.yml@main
+    with:
+      branch: ${{ inputs.target_branch }}
+    secrets:
+      PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
+      JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
