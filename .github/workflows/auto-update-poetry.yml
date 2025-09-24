@@ -68,16 +68,20 @@ jobs:
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
     - name: 🏭 Configure Poetry for JFrog Artifactory
-      if: steps.branch-check.outputs.allowed == 'true' && secrets.JFROG_USERNAME != '' && secrets.JFROG_TOKEN != ''
+      if: steps.branch-check.outputs.allowed == 'true'
       env:
         JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
         JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
       run: |
-        echo "::group::🏭 Configuring Poetry for JFrog Artifactory"
-        # Configure Poetry to use JFrog Artifactory credentials globally
-        poetry config http-basic.artifactory "$JFROG_USERNAME" "$JFROG_TOKEN"
-        echo "✅ Poetry configured for JFrog Artifactory (global)"
-        echo "::endgroup::"
+        if [ -n "$JFROG_USERNAME" ] && [ -n "$JFROG_TOKEN" ]; then
+          echo "::group::🏭 Configuring Poetry for JFrog Artifactory"
+          # Configure Poetry to use JFrog Artifactory credentials globally
+          poetry config http-basic.artifactory "$JFROG_USERNAME" "$JFROG_TOKEN"
+          echo "✅ Poetry configured for JFrog Artifactory (global)"
+          echo "::endgroup::"
+        else
+          echo "ℹ️ JFrog credentials not provided, skipping Artifactory configuration"
+        fi
         
     - name: 📊 Extract repository information and checkout target branch
       if: steps.branch-check.outputs.allowed == 'true'
